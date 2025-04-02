@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <!-- Configurações básicas do documento HTML -->
+    <meta charset="UTF-8"> <!-- Define a codificação de caracteres -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Configura viewport para responsividade -->
+    <title>Cadastro de Produtos</title> <!-- Título da página -->
+    <head>
+        <!-- ... outros meta tags ... -->
+        <link rel="stylesheet" href="styles.css">
+    </head>
+    <!-- Estilos CSS -->
+    <style>
+        /* Estilo para mensagens de erro */
+        .erro { color: red; margin: 5px 0; }
+        
+        /* Estilo para cada item de produto na lista */
+        .produto-item { 
+            border: 1px solid #ddd; /* Borda cinza */
+            padding: 10px; /* Espaçamento interno */
+            margin: 5px 0; /* Margem externa */
+            border-radius: 4px; /* Bordas arredondadas */
+            display: flex; /* Layout flexbox */
+            justify-content: space-between; /* Espaço entre elementos */
+        }
+        
+        /* Estilo para a área de informações do produto */
+        .produto-info { 
+            display: flex; /* Layout flexbox */
+            gap: 20px; /* Espaço entre elementos filhos */
+        }
+        
+        /* Estilo para a área de botões de ação */
+        .produto-acoes { 
+            display: flex; /* Layout flexbox */
+            gap: 10px; /* Espaço entre botões */
+        }
+        
+        /* Estilo básico para inputs e botões */
+        input, button { 
+            margin: 5px 0; /* Margem externa */
+            padding: 8px; /* Espaçamento interno */
+        }
+        
+        /* Estilo para o formulário */
+        #produto-form { 
+            margin-bottom: 20px; /* Margem inferior */
+        }
+        
+        /* Estilo para o botão cancelar (inicialmente oculto) */
+        #btn-cancelar { 
+            display: none; /* Oculta o botão inicialmente */
+            margin-left: 10px; /* Margem à esquerda */
+        }
+    </style>
+</head>
+<body>
+    <!-- Animação do Mário -->
+<div class="mario-container">
+    <div class="mario"></div>
+    <div class="cloud"></div>
+    <div class="cloud"></div>
+    <div class="cloud"></div>
+</div>
+    <!-- Cabeçalho principal -->
+    <h1>Cadastro de Produtos</h1>
+    
+    <!-- Formulário para cadastro/edição de produtos -->
+    <form id="produto-form">
+        <!-- Campo oculto para armazenar o ID durante edição -->
+        <input type="hidden" id="produto-id">
+        
+        <!-- Campo para nome do produto -->
+        <div>
+            <label for="nome">Nome:</label>
+            <input type="text" id="nome" required>
+        </div>
+        
+        <!-- Campo para preço do produto -->
+        <div>
+            <label for="preco">Preço:</label>
+            <input type="number" id="preco" step="0.01" min="0.01" required>
+        </div>
+        
+        <!-- Área de botões -->
+        <div>
+            <!-- Botão principal (muda entre Cadastrar/Atualizar) -->
+            <button type="submit" id="btn-salvar">Cadastrar</button>
+            <!-- Botão cancelar (só aparece durante edição) -->
+            <button type="button" id="btn-cancelar">Cancelar</button>
+        </div>
+    </form>
+    
+    <!-- Div para exibir mensagens de erro -->
+    <div id="erros"></div>
+    
+    <!-- Seção para listar produtos cadastrados -->
+    <h2>Produtos Cadastrados</h2>
+    <div id="lista-produtos"></div>
+    
+    <!-- JavaScript da aplicação -->
+    <script>
+        // 1. MODEL - Produto.js
+        // Classe que representa a entidade Produto e suas regras de negócio
+        class Produto {
+            // Construtor que inicializa um novo produto
+            constructor(id, nome, preco) {
+                this.id = id;         // Identificador único
+                this.nome = nome;     // Nome do produto
+                this.preco = parseFloat(preco); // Preço convertido para número decimal
+            }
+
+            // Método para validar os dados do produto
+            validar() {
+                const erros = []; // Array para armazenar mensagens de erro
+                
+                // Validação do nome
+                if (!this.nome || this.nome.length < 3) {
+                    erros.push('Nome deve ter pelo menos 3 caracteres');
+                }
+                
+                // Validação do preço
+                if (this.preco <= 0 || isNaN(this.preco)) {
+                    erros.push('Preço deve ser um número positivo');
+                }
+                
+                return erros; // Retorna array de erros (vazio se válido)
+            }
+        }
+
+        // 2. CONTROLLER - ProdutoController.js
+        // Classe que gerencia a lógica de negócio e operações com produtos
+        class ProdutoController {
+            constructor() {
+                this.produtos = [];    // Array para armazenar os produtos
+                this.idCounter = 1;    // Contador para gerar IDs únicos
+            }
+
+            // Método para salvar produto (cria novo ou atualiza existente)
+            salvarProduto(id, nome, preco) {
+                let produto; // Variável para o produto
+                let erros;   // Variável para erros de validação
+                
+                if (id) {
+                    // Modo edição - busca produto existente
+                    produto = this.produtos.find(p => p.id == id);
+                    if (produto) {
+                        // Atualiza dados do produto
+                        produto.nome = nome;
+                        produto.preco = parseFloat(preco);
+                        // Valida os novos dados
+                        erros = produto.validar();
+                    }
+                } else {
+                    // Modo cadastro - cria novo produto
+                    produto = new Produto(this.idCounter++, nome, preco);
+                    // Valida o novo produto
+                    erros = produto.validar();
+                    // Se válido, adiciona à lista
+                    if (erros.length === 0) {
+                        this.produtos.push(produto);
+                    }
+                }
+                
+                // Retorna resultado da operação
+                return erros.length === 0 
+                    ? { success: true, produto } 
+                    : { success: false, erros };
+            }
+
+            // Remove um produto da lista pelo ID
+            removerProduto(id) {
+                // Filtra a lista, mantendo apenas produtos com ID diferente
+                this.produtos = this.produtos.filter(p => p.id != id);
+            }
+
+            // Busca um produto pelo ID
+            obterProdutoPorId(id) {
+                return this.produtos.find(p => p.id == id);
+            }
+
+            // Retorna cópia da lista de produtos
+            listarProdutos() {
+                return [...this.produtos]; // Retorna cópia para evitar modificações externas
+            }
+        }
+
+        // 3. VIEW - ProdutoView.js
+        // Classe que controla a interface do usuário
+        class ProdutoView {
+            constructor(controller) {
+                this.controller = controller; // Referência ao controller
+                this.modoEdicao = false;     // Flag para controlar modo de edição
+                
+                // Cache de elementos DOM:
+                this.form = document.getElementById('produto-form'); // Formulário
+                this.idInput = document.getElementById('produto-id'); // Campo ID oculto
+                this.nomeInput = document.getElementById('nome'); // Input nome
+                this.precoInput = document.getElementById('preco'); // Input preço
+                this.btnSalvar = document.getElementById('btn-salvar'); // Botão salvar
+                this.btnCancelar = document.getElementById('btn-cancelar'); // Botão cancelar
+                this.listaProdutos = document.getElementById('lista-produtos'); // Lista de produtos
+                this.erroDiv = document.getElementById('erros'); // Div de erros
+                
+                // Configura eventos da interface
+                this.configurarEventos();
+                // Atualiza a lista inicial
+                this.atualizarLista();
+            }
+
+            // Configura os eventos da interface
+            configurarEventos() {
+                // Evento de submit do formulário
+                this.form.addEventListener('submit', (event) => {
+                    event.preventDefault(); // Evita recarregar a página
+                    
+                    // Obtém valores do formulário
+                    const id = this.modoEdicao ? parseInt(this.idInput.value) : null;
+                    const nome = this.nomeInput.value.trim();
+                    const preco = this.precoInput.value;
+                    
+                    // Chama controller para salvar
+                    const resultado = this.controller.salvarProduto(id, nome, preco);
+                    
+                    if (resultado.success) {
+                        // Se sucesso, limpa formulário e atualiza lista
+                        this.limparFormulario();
+                        this.atualizarLista();
+                    } else {
+                        // Se erro, exibe mensagens
+                        this.exibirErros(resultado.erros);
+                    }
+                });
+                
+                // Evento do botão cancelar
+                this.btnCancelar.addEventListener('click', () => {
+                    this.limparFormulario(); // Volta ao modo cadastro
+                });
+            }
+
+            // Preenche o formulário para edição de um produto
+            preencherFormulario(produto) {
+                this.modoEdicao = true; // Ativa modo edição
+                this.idInput.value = produto.id; // Preenche ID oculto
+                this.nomeInput.value = produto.nome; // Preenche nome
+                this.precoInput.value = produto.preco; // Preenche preço
+                this.btnSalvar.textContent = 'Atualizar'; // Muda texto do botão
+                this.btnCancelar.style.display = 'inline-block'; // Mostra botão cancelar
+                this.nomeInput.focus(); // Foca no campo nome
+            }
+
+            // Limpa o formulário e volta para modo cadastro
+            limparFormulario() {
+                this.modoEdicao = false; // Desativa modo edição
+                this.form.reset(); // Reseta formulário
+                this.idInput.value = ''; // Limpa ID oculto
+                this.btnSalvar.textContent = 'Cadastrar'; // Volta texto original
+                this.btnCancelar.style.display = 'none'; // Oculta botão cancelar
+                this.erroDiv.innerHTML = ''; // Limpa mensagens de erro
+            }
+
+            // Exibe mensagens de erro na interface
+            exibirErros(erros) {
+                // Cria elementos div para cada mensagem de erro
+                this.erroDiv.innerHTML = erros.map(erro => 
+                    `<div class="erro">${erro}</div>`
+                ).join(''); // Junta todas as divs em uma string HTML
+            }
+
+            // Atualiza a lista de produtos na tela
+            atualizarLista() {
+                // Obtém lista de produtos do controller
+                const produtos = this.controller.listarProdutos();
+                
+                // Se lista vazia, exibe mensagem
+                if (produtos.length === 0) {
+                    this.listaProdutos.innerHTML = '<p>Nenhum produto cadastrado ainda.</p>';
+                    return;
+                }
+                
+                // Gera HTML para cada produto
+                this.listaProdutos.innerHTML = produtos.map(produto => `
+                    <div class="produto-item" data-id="${produto.id}">
+                        <div class="produto-info">
+                            <span><strong>ID:</strong> ${produto.id}</span>
+                            <span><strong>Nome:</strong> ${produto.nome}</span>
+                            <span><strong>Preço:</strong> R$ ${produto.preco.toFixed(2)}</span>
+                        </div>
+                        <div class="produto-acoes">
+                            <button class="btn-editar" data-id="${produto.id}">Editar</button>
+                            <button class="btn-remover" data-id="${produto.id}">Remover</button>
+                        </div>
+                    </div>
+                `).join(''); // Junta todos os produtos em uma string HTML
+                
+                // Configura eventos dos botões editar
+                document.querySelectorAll('.btn-editar').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        // Obtém ID do produto a ser editado
+                        const id = parseInt(e.target.getAttribute('data-id'));
+                        // Busca produto no controller
+                        const produto = this.controller.obterProdutoPorId(id);
+                        // Se encontrado, preenche formulário para edição
+                        if (produto) this.preencherFormulario(produto);
+                    });
+                });
+                
+                // Configura eventos dos botões remover
+                document.querySelectorAll('.btn-remover').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        // Obtém ID do produto a ser removido
+                        const id = parseInt(e.target.getAttribute('data-id'));
+                        // Confirma com usuário antes de remover
+                        if (confirm('Tem certeza que deseja remover este produto?')) {
+                            // Remove produto via controller
+                            this.controller.removerProduto(id);
+                            // Atualiza lista
+                            this.atualizarLista();
+                            // Se estava editando o produto removido, limpa formulário
+                            if (this.modoEdicao && parseInt(this.idInput.value) === id) {
+                                this.limparFormulario();
+                            }
+                        }
+                    });
+                });
+            }
+        }
+
+        // Inicializa a aplicação quando o DOM estiver carregado
+        document.addEventListener('DOMContentLoaded', () => {
+            // Cria instância do controller
+            const controller = new ProdutoController();
+            // Cria instância da view, passando o controller
+            new ProdutoView(controller);
+        });
+    </script>
+</body>
+</html>
